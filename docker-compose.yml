@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  db1:
+    build:
+      context: db
+    platform: linux/amd64
+    environment:
+      - MYSQL_DATABASE=app
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+      - WSREP_CLUSTER_ADDRESS=gcomm://
+      - WSREP_CLUSTER_NAME=demo_cluster
+      - WSREP_NODE_NAME=db1
+      - WSREP_NODE_ADDRESS=db1
+    volumes:
+      - demo-data-db1:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: on-failure
+    networks:
+      demo:
+        aliases:
+          - "db"
+
+  db2:
+    build:
+      context: db
+    platform: linux/amd64
+    environment:
+      - MYSQL_DATABASE=app
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+      - WSREP_CLUSTER_ADDRESS=gcomm://db1
+      - WSREP_CLUSTER_NAME=demo_cluster
+      - WSREP_NODE_NAME=db2
+      - WSREP_NODE_ADDRESS=db2
+    volumes:
+      - demo-data-db2:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: on-failure
+    networks:
+      demo:
+        aliases:
+          - "db"
+  
+  app:
+    build:
+      context: app
+    platform: linux/amd64
+    restart: on-failure
+    depends_on:
+      db1:
+        condition: service_healthy
+      db2:
+        condition: service_healthy
+    ports:
+      - 4567:4567
+    networks:
+      demo:
+        aliases:
+          - "app"
+
+volumes:
+  demo-data-db1:
+  demo-data-db2:
+
+networks:
+  demo:
